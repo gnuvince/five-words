@@ -34,12 +34,10 @@ fn read_words() -> anyhow::Result<Vec<String>> {
 
 fn make_bitset(word: &str) -> u32 {
     let mut bitset: u32 = 0;
-    for c in 'a'..='z' {
-        if word.contains(c) {
-            let i = c as u32 - 'a' as u32;
-            let bit = 1 << i;
-            bitset |= bit;
-        }
+    for c in word.chars() {
+        let i = c as u32 - 'a' as u32;
+        let bit = 1 << i;
+        bitset |= bit;
     }
     return bitset;
 }
