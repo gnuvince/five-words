@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use std::io::{self, BufRead, BufReader, Write};
 
 const WORD_SIZE: usize = 5;
-const NUM_WORDS: usize = 5;
 const OTHER_WORDS: usize = 4;
 
 fn read_words() -> anyhow::Result<Vec<String>> {
