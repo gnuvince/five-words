@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::io::{self, BufRead, BufReader};
 
 const WORD_SIZE: usize = 5;
+const NUM_WORDS: usize = 5;
 
 fn read_words() -> anyhow::Result<Vec<String>> {
     let stdin = io::stdin();
@@ -76,7 +77,7 @@ fn main() -> anyhow::Result<()> {
 
     for word in words {
         let bitset = make_bitset(&word);
-        if bitset.count_ones() != 5 {
+        if bitset.count_ones() != WORD_SIZE as u32 {
             continue;
         }
         if !groups.contains_key(&bitset) {
@@ -87,15 +88,15 @@ fn main() -> anyhow::Result<()> {
     }
     eprintln!("bitsets {}", bitsets.len());
 
-    let mut indices: [usize; WORD_SIZE] = [0; WORD_SIZE];
+    let mut indices: [usize; NUM_WORDS] = [0; NUM_WORDS];
     let mut i: usize = 0;
     let mut j: usize = 0;
     let mut acc: u32 = 0;
 
     loop {
-        if indices[0] >= bitsets.len() {
+        if indices[0] + 5 >= bitsets.len() {
             break;
-        } else if i == 5 {
+        } else if i == NUM_WORDS {
             let missing = bitset_to_letter(!acc & !0xfc00_0000);
             print_words(indices, &bitsets, &groups, missing);
             i -= 1;
@@ -105,7 +106,7 @@ fn main() -> anyhow::Result<()> {
             i -= 1;
             j = indices[i];
             acc ^= bitsets[j];
-        } else if (acc | bitsets[j]).count_ones() == ((i + 1) * WORD_SIZE) as u32 {
+        } else if acc & bitsets[j] == 0 {
             acc |= bitsets[j];
             indices[i] = j;
             i += 1;
