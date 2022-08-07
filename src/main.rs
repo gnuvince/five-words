@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::io::{self, BufRead, BufReader};
 
 const WORD_SIZE: usize = 5;
@@ -99,6 +100,12 @@ fn main() -> anyhow::Result<()> {
         words_bitsets.truncate(j);
     }
 
+    let mut groups: HashMap<u32, Vec<String>> = HashMap::new();
+    for (bitset, word) in words_bitsets.iter().zip(words.into_iter()) {
+        let v = groups.entry(*bitset).or_default();
+        v.push(word);
+    }
+
     let mut indices: [usize; WORD_SIZE] = [0; WORD_SIZE];
     let mut i: usize = 0;
     let mut j: usize = 0;
@@ -117,11 +124,27 @@ fn main() -> anyhow::Result<()> {
         j += 1;
     }
 
-    for i in indices {
-        print!("{} ", words[i]);
-    }
     let missing = bitset_to_letter(!acc & !0xfc00_0000);
-    println!("{}", missing);
+    print_words(indices, &words_bitsets, &groups, missing);
 
     return Ok(());
+}
+
+fn print_words(
+    indices: [usize; WORD_SIZE],
+    bitsets: &[u32],
+    groups: &HashMap<u32, Vec<String>>,
+    missing: char,
+) {
+    for a in groups.get(&bitsets[indices[0]]).unwrap() {
+        for b in groups.get(&bitsets[indices[1]]).unwrap() {
+            for c in groups.get(&bitsets[indices[2]]).unwrap() {
+                for d in groups.get(&bitsets[indices[3]]).unwrap() {
+                    for e in groups.get(&bitsets[indices[4]]).unwrap() {
+                        println!("{} {} {} {} {} {}", a, b, c, d, e, missing);
+                    }
+                }
+            }
+        }
+    }
 }
