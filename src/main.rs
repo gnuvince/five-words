@@ -69,25 +69,39 @@ fn test_bitset_to_letter() {
 
 fn main() -> anyhow::Result<()> {
     let words = read_words()?;
+    eprintln!("words {}", words.len());
+
     let mut groups: HashMap<u32, Vec<String>> = HashMap::new();
     let mut bitsets: Vec<u32> = Vec::new();
 
     for word in words {
         let bitset = make_bitset(&word);
+        if bitset.count_ones() != 5 {
+            continue;
+        }
         if !groups.contains_key(&bitset) {
             bitsets.push(bitset);
         }
         let v = groups.entry(bitset).or_default();
         v.push(word);
     }
+    eprintln!("bitsets {}", bitsets.len());
 
     let mut indices: [usize; WORD_SIZE] = [0; WORD_SIZE];
     let mut i: usize = 0;
     let mut j: usize = 0;
     let mut acc: u32 = 0;
 
-    while i < WORD_SIZE {
-        if j == bitsets.len() {
+    loop {
+        if indices[0] >= bitsets.len() {
+            break;
+        } else if i == 5 {
+            let missing = bitset_to_letter(!acc & !0xfc00_0000);
+            print_words(indices, &bitsets, &groups, missing);
+            i -= 1;
+            j = indices[i];
+            acc ^= bitsets[j];
+        } else if j == bitsets.len() {
             i -= 1;
             j = indices[i];
             acc ^= bitsets[j];
@@ -98,9 +112,6 @@ fn main() -> anyhow::Result<()> {
         }
         j += 1;
     }
-
-    let missing = bitset_to_letter(!acc & !0xfc00_0000);
-    print_words(indices, &bitsets, &groups, missing);
 
     return Ok(());
 }
