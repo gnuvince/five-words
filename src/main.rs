@@ -67,42 +67,17 @@ fn test_bitset_to_letter() {
     assert_eq!(bitset_to_letter(1 << 25), 'z');
 }
 
-fn make_bitsets(words: &[String]) -> Vec<u32> {
-    let mut bitsets: Vec<u32> = Vec::new();
-    for word in words {
-        bitsets.push(make_bitset(word));
-    }
-    return bitsets;
-}
-
 fn main() -> anyhow::Result<()> {
-    let mut words = read_words()?;
-    let mut words_bitsets = make_bitsets(&words);
-
-    assert_eq!(words.len(), words_bitsets.len());
-
-    // Keep only the words that have `WORD_SIZE` distinct letters.
-    {
-        let mut i: usize = 0;
-        let mut j: usize = words.len() - 1;
-
-        while i < j {
-            if words_bitsets[i].count_ones() != WORD_SIZE as u32 {
-                words.swap(i, j);
-                words_bitsets.swap(i, j);
-                j -= 1;
-            } else {
-                i += 1;
-            }
-        }
-
-        words.truncate(j);
-        words_bitsets.truncate(j);
-    }
-
+    let words = read_words()?;
     let mut groups: HashMap<u32, Vec<String>> = HashMap::new();
-    for (bitset, word) in words_bitsets.iter().zip(words.into_iter()) {
-        let v = groups.entry(*bitset).or_default();
+    let mut bitsets: Vec<u32> = Vec::new();
+
+    for word in words {
+        let bitset = make_bitset(&word);
+        if !groups.contains_key(&bitset) {
+            bitsets.push(bitset);
+        }
+        let v = groups.entry(bitset).or_default();
         v.push(word);
     }
 
@@ -112,12 +87,12 @@ fn main() -> anyhow::Result<()> {
     let mut acc: u32 = 0;
 
     while i < WORD_SIZE {
-        if j == words_bitsets.len() {
+        if j == bitsets.len() {
             i -= 1;
             j = indices[i];
-            acc ^= words_bitsets[j];
-        } else if (acc | words_bitsets[j]).count_ones() == ((i + 1) * WORD_SIZE) as u32 {
-            acc |= words_bitsets[j];
+            acc ^= bitsets[j];
+        } else if (acc | bitsets[j]).count_ones() == ((i + 1) * WORD_SIZE) as u32 {
+            acc |= bitsets[j];
             indices[i] = j;
             i += 1;
         }
@@ -125,7 +100,7 @@ fn main() -> anyhow::Result<()> {
     }
 
     let missing = bitset_to_letter(!acc & !0xfc00_0000);
-    print_words(indices, &words_bitsets, &groups, missing);
+    print_words(indices, &bitsets, &groups, missing);
 
     return Ok(());
 }
