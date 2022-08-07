@@ -18,7 +18,11 @@ fn read_words() -> anyhow::Result<Vec<String>> {
             break;
         }
 
-        if word_buf.len() == WORD_SIZE + 1 {
+        if word_buf.len() == WORD_SIZE + 1
+            && (&word_buf[..WORD_SIZE])
+                .chars()
+                .all(|c| c.is_ascii_alphabetic())
+        {
             words.push(word_buf.trim().to_ascii_lowercase());
         }
     }
