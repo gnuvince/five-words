@@ -1,5 +1,7 @@
 use std::collections::HashMap;
-use std::io::{self, BufRead, BufReader, Write};
+use std::io::{self, BufRead, BufReader};
+use std::sync::mpsc;
+use std::sync::Arc;
 
 const WORD_SIZE: usize = 5;
 const OTHER_WORDS: usize = 4;
@@ -67,6 +69,8 @@ fn test_bitset_to_letter() {
 }
 
 fn main() -> anyhow::Result<()> {
+    let pool = threadpool::ThreadPool::new(8);
+
     let words = read_words()?;
     eprintln!("words {}", words.len());
 
@@ -84,6 +88,7 @@ fn main() -> anyhow::Result<()> {
         let v = groups.entry(bitset).or_default();
         v.push(word);
     }
+    let shared_groups = Arc::new(groups); // For threadpool
     eprintln!("bitsets {}", bitsets.len());
 
     let t = std::time::Instant::now();
@@ -99,55 +104,70 @@ fn main() -> anyhow::Result<()> {
     }
     eprintln!("time to build non_conflicting_bitsets {:?}", t.elapsed());
 
+    let (tx, rx) = mpsc::channel::<Vec<String>>();
     for (k, v) in non_conflicting_bitsets {
-        let mut indices: [usize; OTHER_WORDS] = [0; OTHER_WORDS];
-        let mut i: usize = 0;
-        let mut j: usize = 0;
-        let mut acc: u32 = k;
+        let shared_groups = shared_groups.clone();
+        let tx = tx.clone();
+        pool.execute(move || {
+            let mut indices: [usize; OTHER_WORDS] = [0; OTHER_WORDS];
+            let mut i: usize = 0;
+            let mut j: usize = 0;
+            let mut acc: u32 = k;
 
-        loop {
-            if indices[0] + OTHER_WORDS >= v.len() {
-                break;
-            } else if i == OTHER_WORDS {
-                let missing = bitset_to_letter(!acc & !0xfc00_0000);
-                print_words(k, indices, &v, &groups, missing);
-                i -= 1;
-                j = indices[i];
-                acc ^= v[j]
-            } else if j == v.len() {
-                i -= 1;
-                j = indices[i];
-                acc ^= v[j];
-            } else if acc & v[j] == 0 {
-                acc |= v[j];
-                indices[i] = j;
-                i += 1;
+            loop {
+                if indices[0] + OTHER_WORDS >= v.len() {
+                    break;
+                } else if i == OTHER_WORDS {
+                    let missing = bitset_to_letter(!acc & !0xfc00_0000);
+                    let words = gen_words(k, indices, &v, &shared_groups, missing);
+                    tx.send(words).expect("send");
+                    i -= 1;
+                    j = indices[i];
+                    acc ^= v[j]
+                } else if j == v.len() {
+                    i -= 1;
+                    j = indices[i];
+                    acc ^= v[j];
+                } else if acc & v[j] == 0 {
+                    acc |= v[j];
+                    indices[i] = j;
+                    i += 1;
+                }
+                j += 1;
             }
-            j += 1;
+        });
+    }
+    pool.join();
+
+    drop(tx);
+
+    for v in rx.into_iter() {
+        for m in v {
+            println!("{}", m);
         }
     }
 
     return Ok(());
 }
 
-fn print_words(
+fn gen_words(
     key: u32,
     indices: [usize; OTHER_WORDS],
     bitsets: &[u32],
     groups: &HashMap<u32, Vec<String>>,
     missing: char,
-) {
-    let stdout = io::stdout();
-    let mut stdout = stdout.lock();
+) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
     for a in groups.get(&key).unwrap() {
         for b in groups.get(&bitsets[indices[0]]).unwrap() {
             for c in groups.get(&bitsets[indices[1]]).unwrap() {
                 for d in groups.get(&bitsets[indices[2]]).unwrap() {
                     for e in groups.get(&bitsets[indices[3]]).unwrap() {
-                        writeln!(&mut stdout, "{} {} {} {} {} {}", a, b, c, d, e, missing);
+                        out.push(format!("{} {} {} {} {} {}", a, b, c, d, e, missing));
                     }
                 }
             }
         }
     }
+    return out;
 }
