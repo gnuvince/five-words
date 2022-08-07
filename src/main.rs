@@ -1,8 +1,9 @@
 use std::collections::HashMap;
-use std::io::{self, BufRead, BufReader};
+use std::io::{self, BufRead, BufReader, Write};
 
 const WORD_SIZE: usize = 5;
 const NUM_WORDS: usize = 5;
+const OTHER_WORDS: usize = 4;
 
 fn read_words() -> anyhow::Result<Vec<String>> {
     let stdin = io::stdin();
@@ -88,47 +89,65 @@ fn main() -> anyhow::Result<()> {
     }
     eprintln!("bitsets {}", bitsets.len());
 
-    let mut indices: [usize; NUM_WORDS] = [0; NUM_WORDS];
-    let mut i: usize = 0;
-    let mut j: usize = 0;
-    let mut acc: u32 = 0;
-
-    loop {
-        if indices[0] + 5 >= bitsets.len() {
-            break;
-        } else if i == NUM_WORDS {
-            let missing = bitset_to_letter(!acc & !0xfc00_0000);
-            print_words(indices, &bitsets, &groups, missing);
-            i -= 1;
-            j = indices[i];
-            acc ^= bitsets[j];
-        } else if j == bitsets.len() {
-            i -= 1;
-            j = indices[i];
-            acc ^= bitsets[j];
-        } else if acc & bitsets[j] == 0 {
-            acc |= bitsets[j];
-            indices[i] = j;
-            i += 1;
+    let t = std::time::Instant::now();
+    let mut non_conflicting_bitsets: Vec<(u32, Vec<u32>)> = Vec::new();
+    for i in 0..bitsets.len() {
+        let mut v: Vec<u32> = Vec::new();
+        for j in i + 1..bitsets.len() {
+            if bitsets[i] & bitsets[j] == 0 {
+                v.push(bitsets[j]);
+            }
         }
-        j += 1;
+        non_conflicting_bitsets.push((bitsets[i], v));
+    }
+    eprintln!("time to build non_conflicting_bitsets {:?}", t.elapsed());
+
+    for (k, v) in non_conflicting_bitsets {
+        let mut indices: [usize; OTHER_WORDS] = [0; OTHER_WORDS];
+        let mut i: usize = 0;
+        let mut j: usize = 0;
+        let mut acc: u32 = 0;
+
+        loop {
+            if indices[0] + OTHER_WORDS >= v.len() {
+                break;
+            } else if i == OTHER_WORDS {
+                let missing = bitset_to_letter(!acc & !0xfc00_0000);
+                print_words(k, indices, &bitsets, &groups, missing);
+                i -= 1;
+                j = indices[i];
+                acc ^= v[j]
+            } else if j == v.len() {
+                i -= 1;
+                j = indices[i];
+                acc ^= v[j];
+            } else if acc & v[j] == 0 {
+                acc |= v[j];
+                indices[i] = j;
+                i += 1;
+            }
+            j += 1;
+        }
     }
 
     return Ok(());
 }
 
 fn print_words(
-    indices: [usize; WORD_SIZE],
+    key: u32,
+    indices: [usize; OTHER_WORDS],
     bitsets: &[u32],
     groups: &HashMap<u32, Vec<String>>,
     missing: char,
 ) {
-    for a in groups.get(&bitsets[indices[0]]).unwrap() {
-        for b in groups.get(&bitsets[indices[1]]).unwrap() {
-            for c in groups.get(&bitsets[indices[2]]).unwrap() {
-                for d in groups.get(&bitsets[indices[3]]).unwrap() {
-                    for e in groups.get(&bitsets[indices[4]]).unwrap() {
-                        println!("{} {} {} {} {} {}", a, b, c, d, e, missing);
+    let stdout = io::stdout();
+    let mut stdout = stdout.lock();
+    for a in groups.get(&key).unwrap() {
+        for b in groups.get(&bitsets[indices[0]]).unwrap() {
+            for c in groups.get(&bitsets[indices[1]]).unwrap() {
+                for d in groups.get(&bitsets[indices[2]]).unwrap() {
+                    for e in groups.get(&bitsets[indices[3]]).unwrap() {
+                        writeln!(&mut stdout, "{} {} {} {} {} {}", a, b, c, d, e, missing);
                     }
                 }
             }
