@@ -106,14 +106,14 @@ fn main() -> anyhow::Result<()> {
         let mut indices: [usize; OTHER_WORDS] = [0; OTHER_WORDS];
         let mut i: usize = 0;
         let mut j: usize = 0;
-        let mut acc: u32 = 0;
+        let mut acc: u32 = k;
 
         loop {
             if indices[0] + OTHER_WORDS >= v.len() {
                 break;
             } else if i == OTHER_WORDS {
                 let missing = bitset_to_letter(!acc & !0xfc00_0000);
-                print_words(k, indices, &bitsets, &groups, missing);
+                print_words(k, indices, &v, &groups, missing);
                 i -= 1;
                 j = indices[i];
                 acc ^= v[j]
