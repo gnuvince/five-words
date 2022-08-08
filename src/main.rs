@@ -118,7 +118,7 @@ fn main() -> anyhow::Result<()> {
                 if i == OTHER_WORDS {
                     // Successfully found a set of five words; write them out, send them
                     // to the main thread, and backtrack to find more candidate.
-                    let missing = bitset_to_letter(!acc & !0xfc00_0000);
+                    let missing = bitset_to_letter(!(acc | 0xfc00_0000));
                     let words = gen_words(k, indices, &v, &shared_groups, missing);
                     tx.send(words).expect("send");
                     i -= 1;
