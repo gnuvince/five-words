@@ -115,9 +115,9 @@ fn main() -> anyhow::Result<()> {
             let mut acc: u32 = k;
 
             loop {
-                if indices[0] + OTHER_WORDS >= v.len() {
-                    break;
-                } else if i == OTHER_WORDS {
+                if i == OTHER_WORDS {
+                    // Successfully found a set of five words; write them out, send them
+                    // to the main thread, and backtrack to find more candidate.
                     let missing = bitset_to_letter(!acc & !0xfc00_0000);
                     let words = gen_words(k, indices, &v, &shared_groups, missing);
                     tx.send(words).expect("send");
@@ -125,10 +125,17 @@ fn main() -> anyhow::Result<()> {
                     j = indices[i];
                     acc ^= v[j]
                 } else if j == v.len() {
+                    // Reached the end of the word list without finding a set of 5;
+                    // exit the loop if we exhausted all possibilities, or else backtrack.
+                    if i == 0 {
+                        break;
+                    }
                     i -= 1;
                     j = indices[i];
                     acc ^= v[j];
                 } else if acc & v[j] == 0 {
+                    // Found a match (empty intersection between acc and the current word);
+                    // add it to the set.
                     acc |= v[j];
                     indices[i] = j;
                     i += 1;
